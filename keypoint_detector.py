@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import sys
+import random
 
 # local imports
 from convolution import *
@@ -11,8 +12,17 @@ def detect_keypoints(g):
     return 0
 
 # find local maxima of Harris Response matrix
-def local_maxima(g, h, size):
-    return 0
+def local_maxima(H, size):
+    height, width = H.shape
+    max = []
+    # iterate over pixels
+    for u in range(height):
+        for v in range(width):
+            # add to list if local maxima
+            if check_if_local_maxima(H, size, width, height, u, v):
+                max.append([H[u,v], [u,v]])
+
+    return max
 
 # Check if a given pixel is a local maxima
 def check_if_local_maxima(H, size, width, height, u, v):
@@ -87,25 +97,44 @@ H_det = np.multiply(g_u2, g_v2) - np.multiply(g_uv, g_uv)
 H_tr = g_u2 + g_v2 + 1e-10
 # H = det(g)/tr(g)
 H = np.divide(H_det, H_tr)
-
 plt.imshow(H)
 plt.show()
 
-# Find local maxima of Harris matrix scores
-height, width = H.shape
-max = []
-# size of neighborhood
-size = 50
+# find local maxima
+size = 1
+max = local_maxima(H, size)
+# for i in range(len(max)):
+#     plt.scatter(x=max[i][1][1], y=max[i][1][0], c='r')
+# plt.imshow(I,cmap=plt.cm.gray)
+# plt.show()
 
-# iterate over pixels
-for u in range(height):
-    for v in range(width):
-        # add to list if local maxima
-        if check_if_local_maxima(H, size, width, height, u, v):
-            max.append([u,v])
+### Non-maximal Suppression
 
+# sort local maxima by Harris score
+random.shuffle(max)
+max = max[0:1000]
+max.sort()
+suppressedMax = []
+
+# the nearest local maximal neighbor of each pt with greater Harris score
 for i in range(len(max)):
-    plt.scatter(x=max[i][1], y=max[i][0], c='r')
+    pt_curr = max[i]
+    pt_near = None
+    pt_dist = None
+    for j in range(i+1,len(max)):
+        # for each greater Harris score, calculate distance
+        dist = (pt_curr[1][0] - max[j][1][0])**2 + (pt_curr[1][1] - max[j][1][1])**2
+        if (pt_dist == None or pt_dist > dist):
+            pt_near = max[j]
+            pt_dist = dist
+    if (pt_near != None):
+        suppressedMax.append([pt_dist, pt_curr])
 
+# Sort Non-Maximal Suppressed List by distance
+suppressedMax.sort(reverse=True)
+topMax = suppressedMax[0:100]
+
+for i in range(len(topMax)):
+    plt.scatter(x=topMax[i][1][1][1], y=topMax[i][1][1][0], c='b')
 plt.imshow(I,cmap=plt.cm.gray)
 plt.show()
